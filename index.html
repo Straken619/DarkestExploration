@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Darkest Exploration</title>
+  <style>
+  /* 1. Variables & reset */
+    :root {
+      --bg: #08090b;
+      --text: #e6e0d2;
+      --line: rgba(190, 185, 176, 0.62);
+      --gold: #b6955b;
+    }
+
+    * { box-sizing: border-box; }
+
+	.hidden { display: none !important; }
+
+  /* 2. Base layout */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #16191d 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+   .app {
+	  width: min(96vw, calc(96vh * 4 / 3));
+	  height: min(96vh, calc(96vw * 3 / 4));
+	  aspect-ratio: 4 / 3;
+	  text-align: center;
+	}
+
+    h1 {
+      margin: 0 0 18px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-size: clamp(32px, 6vw, 72px);
+      color: var(--text);
+      text-shadow: 0 5px 0 #000;
+    }
+	
+  /* 3. Screens */
+	.screen-center {
+	  height: 100%;
+	  display: grid;
+	  place-content: center;
+	  gap: 24px;
+	}
+
+	.map-screen {
+	  height: 100%;
+	  display: grid;
+	  grid-template-rows: 16% 68% 16%;
+	}
+
+	.map-header {
+	  display: grid;
+	  place-items: center;
+	}
+
+	.map-header h1 {
+	  margin: 0;
+	  font-size: clamp(24px, 5vmin, 56px);
+	}
+	
+	.map-footer {
+	  display: grid;
+	  grid-template-rows: auto auto;
+	  place-items: center;
+	  align-content: center;
+	}
+	
+	.caption {
+	  margin: 0 0 8px;
+	  font-size: clamp(11px, 1.6vmin, 16px);
+	}
+	
+	.map-footer .button-row {
+	  margin: 0;
+	}
+
+  /* 4. Buttons */
+    .button-row,
+    .location-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin: 22px 0;
+    }
+
+    button {
+      border: 2px solid #3a3030;
+      background: linear-gradient(#2d1111, #120707);
+      color: var(--text);
+      padding: 14px 26px;
+      min-width: 150px;
+      font-family: inherit;
+      font-size: 18px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 6px 0 #000, inset 0 0 18px rgba(255,255,255,0.04);
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.15);
+    }
+
+    button:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 #000;
+    }
+
+	button:disabled {
+	  opacity: 0.45;
+	  cursor: not-allowed;
+	  filter: grayscale(0.4);
+	}
+
+
+  /* 5. Main map layout */
+	.dungeon-container {
+	  height: 100%;
+	  display: grid;
+	  grid-template-columns: 25% 50% 25%;
+	  align-items: center;
+	}
+
+	.left-panel,
+	.right-panel {
+	  height: 100%;
+	  position: relative;
+	}
+
+	.map-stage {
+	  height: 100%;
+	  width: 100%;
+	  margin: 0;
+	  display: grid;
+	  place-items: center;
+	}
+
+	.map-wrap {
+	  position: relative;
+	  height: 100%;
+	  aspect-ratio: 1 / 1;
+
+	  border: 3px solid #292d30;
+	  background-image: url("img/maps/dungeon-background.png");
+	  background-size: contain;
+	  background-repeat: no-repeat;
+	  background-position: center;
+	  box-shadow: 0 18px 45px rgba(0,0,0,0.7);
+	  overflow: hidden;
+	}
+	
+  /* 6. Room nodes */	
+    .room {
+      position: absolute;
+      width: var(--room-size);
+      aspect-ratio: 1 / 1;
+      transform: translate(-50%, -50%);
+      border: 0;
+      padding: 0;
+      min-width: unset;
+      background: transparent;
+      border-radius: 2px;
+      z-index: 2;
+      box-shadow: 0 0 18px rgba(84, 156, 73, 0.22);
+	  cursor: pointer;
+    }
+
+    .room:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+      filter: brightness(1.18);
+    }
+
+    .room img,
+    .room .revealed-icon,
+    .room .start-icon {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .revealed-icon,
+    .start-icon {
+      display: grid !important;
+      place-items: center;
+      background: #141414;
+      border: 3px solid #333842;
+      color: var(--gold);
+      font-size: clamp(12px, 2vw, 24px);
+      text-shadow: 0 2px 0 #000;
+      padding: 4px;
+      line-height: 1;
+      overflow-wrap: anywhere;
+    }
+
+    .start-icon {
+      background: rgba(10, 10, 10, 0.7);
+      border-color: #4b4f56;
+      font-size: clamp(18px, 3vw, 44px);
+    }
+	
+	.room.active-room {
+	  outline: 4px solid #d6b35f;
+	  outline-offset: 4px;
+	  filter: brightness(1.25);
+	  box-shadow:
+		0 0 12px #d6b35f,
+		0 0 28px rgba(214, 179, 95, 0.75);
+	}
+	
+	
+  /* 7. Long rooms */	
+	.long-room-marker {
+	  position: absolute;
+	  left: 50%;
+	  top: 50%;
+	  width: 38%;
+	  height: 38%;
+	  transform: translate(-50%, -50%);
+	  border-radius: 50%;
+	  background: rgba(190, 185, 176, 0.95);
+	  border: 2px solid rgba(255,255,255,0.15);
+
+	  box-shadow:
+		0 2px 0 #000,
+		0 0 10px rgba(190, 185, 176, 0.45);
+	}
+	
+	.room[data-state="long"] {
+	  box-shadow: none;
+	}
+
+	.long-room.active-room {
+	  outline: none;
+	  border-radius: 50%;
+
+	  box-shadow:
+		0 0 0 4px #d6b35f,
+		0 0 14px #d6b35f,
+		0 0 28px rgba(214, 179, 95, 0.75);
+	}
+
+  /* 8. Connections */
+    .connection-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .connection-line {
+      stroke: var(--line);
+      stroke-width: 7;
+      stroke-linecap: square;
+      stroke-dasharray: 2 14;
+      filter: drop-shadow(0 2px 0 #000);
+    }
+
+  /* 9. Encounter / exploration panel */
+	.encounter-grid {
+	  height: 100%;
+	  display: grid;
+	  grid-template-columns: repeat(3, 7vmin);
+	  grid-auto-rows: 7vmin;
+	  gap: 1vmin;
+	  justify-content: center;
+	  align-content: center;
+	}
+
+	.encounter-grid.single-column {
+	  grid-template-columns: repeat(2, 7vmin);
+	}	
+
+	.encounter-grid.single-row {
+	  grid-template-columns: repeat(2, 7vmin);
+	  grid-auto-rows: 7vmin;
+	  align-content: center;
+	}	
+
+	.encounter-grid img {
+	  width: 7vmin;
+	  height: 7vmin;
+	  object-fit: contain;
+	  cursor: pointer;
+	  filter: drop-shadow(0 2px 0 #000);
+	}
+	
+	.encounter-grid img.disabled {
+	  opacity: 0.28;
+	  filter:
+		grayscale(1)
+		brightness(0.65);
+	  transform: scale(0.92);
+	}	
+		
+  /* 10. Camp / gold panel */	
+	
+	.left-panel {
+	  height: 100%;
+	  display: grid;
+	  grid-template-rows: 50% 50%;
+	}
+	
+	.camp-panel,
+	.gold-panel {
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	}	
+	
+	.camp-panel {
+	  gap: 1vmin;
+	}
+
+	.camp-token {
+	  width: 7vmin;
+	  height: 14vmin;
+	  object-fit: contain;
+	  filter: drop-shadow(0 2px 0 #000);
+
+	  transition:
+		opacity 0.15s ease,
+		filter 0.15s ease,
+		transform 0.15s ease;
+	}
+
+	.camp-token.clickable {
+	  cursor: pointer;
+	}
+
+	.camp-token.disabled {
+	  opacity: 0.28;
+	  filter:
+		grayscale(1)
+		brightness(0.65);
+	  transform: scale(0.92);
+	}
+
+	.camp-token.unavailable {
+	  opacity: 0.45;
+	  cursor: not-allowed;
+	}
+
+	.camp-token-wrap {
+	  position: relative;
+	  width: 6vmin;
+	  height: 12vmin;
+	}
+
+	.camp-token-wrap .camp-token {
+	  width: 100%;
+	  height: 100%;
+	}	
+	
+	.camp-token-wrap.disabled {
+	  opacity: 0.28;
+	  filter:
+		grayscale(1)
+		brightness(0.65);
+	  transform: scale(0.92);
+	}
+
+	.supplies-number {
+	  position: absolute;
+
+	  top: 14%;
+	  left: 50%;
+
+	  transform: translateX(-50%);
+
+	  color: #d2a44c;
+	  font-size: 4vmin;
+	  line-height: 1;
+	  letter-spacing: 0.04em;
+
+	  text-shadow:
+		-1px 0 #d2a44c,
+		 1px 0 #d2a44c,
+		 0 -1px #d2a44c,
+		 0  1px #d2a44c,
+
+		 0 2px 0 #000,
+		 0 0 8px rgba(0,0,0,0.85);
+
+	  pointer-events: none;
+	}
+
+  /* 11. Animations */
+
+	.encounter-grid.pulse {
+	  animation: encounterPulse 0.35s ease-out 2;
+	}
+
+	@keyframes encounterPulse {
+	  0% {
+		transform: scale(0.92);
+		opacity: 0.4;
+	  }
+
+	  100% {
+		transform: scale(1);
+		opacity: 1;
+	  }
+	}
+
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="startScreen" class="screen-center">
+      <h1>Darkest Exploration</h1>
+      <div class="button-row">
+        <button id="embarkBtn">Embark</button>
+		<button id="loadBtn">Load</button>
+		<input id="loadFileInput" type="file" accept=".json" hidden>
+      </div>
+    </section>
+
+    <section id="locationScreen" class="hidden screen-center">
+      <h1>Choose Your Quest</h1>
+      <div class="location-list" id="locationList"></div>
+    </section>
+
+	<section id="mapScreen" class="hidden map-screen">
+	  <header class="map-header">
+		<h1 id="mapTitle">Quest Map</h1>
+	  </header>
+
+	  <div class="dungeon-container">
+		<aside class="left-panel">
+		  <div class="camp-panel">
+			<img
+			  id="firewoodToken"
+			  class="camp-token clickable"
+			  src="img/camp/firewood.png"
+			  alt="Firewood"
+			>
+
+			<div id="suppliesToken" class="camp-token-wrap">
+			  <img
+				class="camp-token"
+				src="img/camp/supplies.png"
+				alt="Supplies"
+			  >
+
+			  <span id="suppliesNumber" class="supplies-number">
+				0
+			  </span>
+			</div>
+		  </div>
+
+		  <div class="gold-panel">
+			<!-- gold section later -->
+		  </div>
+		</aside>
+
+		<div class="map-stage">
+		  <div class="map-wrap" id="mapWrap">
+			<svg class="connection-layer" id="connectionLayer"></svg>
+		  </div>
+		</div>
+
+		<aside class="right-panel">
+		  <div class="encounter-grid" id="encounterGrid"></div>
+		</aside>
+	  </div>
+
+	  <footer class="map-footer">
+		<p class="caption">Click on a door to reveal the room. Click the room again to clear it.</p>
+
+		<div class="button-row">
+		  <button id="scoutBtn">Scout</button>
+		  <button id="saveBtn">Save</button>
+		  <button id="backBtn">Leave</button>
+		</div>
+	  </footer>
+	</section>
+  </main>
+
+  <script>
+  /* Asset paths */
+    const GREEN_DOOR_ICON = "img/icons/green-door.png";
+    const WHITE_DOOR_ICON = "img/icons/white-door.png";
+    const START_ICON = "img/icons/party.png";
+  
+ 	const ENCOUNTER_ICONS = [
+	  "img/exploration/Curio.png",
+	  "img/exploration/Dark.png",
+	  "img/exploration/Hunger.png",
+	  "img/exploration/Nothing.png",
+	  "img/exploration/Rubble.png",
+	  "img/exploration/Trap.png"
+	];
+	
+	const ROLE_ICONS = [
+	  "img/exploration/aggressive.png",
+	  "img/exploration/defensive.png",
+	  "img/exploration/ranged.png",
+	  "img/exploration/support.png"
+	];
+	
+	const STRESS_PAIR_ICONS = [
+	  "img/exploration/stress.png",
+	  "img/exploration/plus1.png"
+	]; 
+  
+  /* Quests and Layouts */
+    const RUINS_LAYOUTS = [
+      {
+        name: "Ruins Layout 1",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 2, row: 1 },
+          { id: "r2", col: 3, row: 1 },
+          { id: "r3", col: 1, row: 2 },
+          { id: "r4", col: 2, row: 2 },
+          { id: "r5", col: 3, row: 2 },
+          { id: "r6", col: 1, row: 3 },
+          { id: "r7", col: 2, row: 3 },
+          { id: "r8", col: 3, row: 3 }
+        ],
+        connections: [
+          ["r1", "r2"],
+          ["r1", "r4"],
+          ["r4", "r5"],
+          ["r4", "r7"],
+          ["r7", "r8"],
+          ["r7", "start"],
+          ["r6", "r7"],
+          ["r3", "r6"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 2",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 2, row: 1 },
+          { id: "r2", col: 3, row: 1 },
+          { id: "r3", col: 1, row: 2 },
+          { id: "r4", col: 2, row: 2 },
+          { id: "r5", col: 3, row: 2 },
+          { id: "r6", col: 1, row: 3 },
+          { id: "r7", col: 2, row: 3 },
+          { id: "r8", col: 1, row: 4 }
+        ],
+        connections: [
+          ["r1", "r2"],
+          ["r1", "r4"],
+          ["r2", "r5"],
+          ["r3", "r4"],
+          ["r4", "r7"],
+          ["r7", "start"],
+          ["r3", "r6"],
+          ["r6", "r8"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 3",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 1, row: 1 },
+          { id: "r2", col: 2, row: 1 },
+          { id: "r3", col: 3, row: 1 },
+		  { id: "l1", type: "long", col: 1, row: 2 },
+          { id: "r4", col: 2, row: 2 },
+		  { id: "l2", type: "long", col: 3, row: 2 },
+          { id: "r5", col: 1, row: 3 },
+          { id: "r6", col: 2, row: 3 },
+          { id: "r7", col: 3, row: 3 },
+          { id: "r8", col: 1, row: 4 }
+        ],
+        connections: [
+          ["r1", "l1"],
+          ["l1", "r5"],
+          ["r5", "r8"],
+          ["r2", "r4"],
+          ["r4", "r6"],
+          ["r6", "start"],
+          ["r3", "l2"],
+          ["l2", "r7"],
+          ["l1", "r4"],
+          ["r4", "l2"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 4",
+        grid: { cols: 4, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 2, row: 1 },
+          { id: "r2", col: 4, row: 1 },
+          { id: "r3", col: 2, row: 2 },
+		  { id: "l1", type: "long", col: 4, row: 2 },
+          { id: "r4", col: 1, row: 3 },
+          { id: "r5", col: 2, row: 3 },
+          { id: "r6", col: 3, row: 3 },
+          { id: "r7", col: 4, row: 3 },
+          { id: "r8", col: 1, row: 4 }
+        ],
+        connections: [	
+		  ["r3", "l1"],
+		  ["r4", "r5"],
+          ["r5", "r6"],
+          ["r6", "r7"],
+          ["r1", "r3"],
+          ["r2", "l1"],
+		  ["r3", "r5"],
+		  ["l1", "r7"],
+		  ["r4", "r8"],
+          ["r5", "start"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 5",
+        grid: { cols: 4, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 1, row: 1 },
+          { id: "r2", col: 1, row: 2 },
+		  { id: "l1", type: "long", col: 2, row: 2 },
+          { id: "r3", col: 3, row: 2 },
+          { id: "r4", col: 4, row: 2 },
+          { id: "r5", col: 1, row: 3 },
+          { id: "r6", col: 2, row: 3 },
+          { id: "r7", col: 3, row: 3 },
+          { id: "r8", col: 4, row: 3 }
+        ],
+        connections: [
+          ["r1", "r2"],
+          ["r2", "l1"],
+          ["l1", "r3"],
+          ["r3", "r4"],
+          ["r6", "r7"],
+          ["r7", "r8"],
+          ["r2", "r5"],
+          ["l1", "r6"],
+          ["r4", "r8"],
+          ["r6", "start"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 6",
+        grid: { cols: 4, rows: 4 },
+        start: { col: 1, row: 4 },
+        rooms: [
+          { id: "r1", col: 3, row: 1 },
+          { id: "r2", col: 2, row: 2 },
+          { id: "r3", col: 3, row: 2 },
+		  { id: "l1", type: "long", col: 4, row: 2 },
+          { id: "r4", col: 3, row: 3 },
+          { id: "r5", col: 4, row: 3 },
+          { id: "r6", col: 2, row: 4 },
+          { id: "r7", col: 3, row: 4 },
+          { id: "r8", col: 4, row: 4 }
+        ],
+        connections: [
+          ["r2", "r3"],
+          ["r3", "l1"],
+          ["start", "r6"],
+          ["r6", "r7"],
+          ["r7", "r8"],
+          ["r1", "r3"],
+          ["r2", "r6"],
+          ["r3", "r4"],
+          ["l1", "r5"],
+          ["r4", "r7"],
+          ["r5", "r8"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 7",
+        grid: { cols: 3, rows: 3 },
+        start: { col: 2, row: 2 },
+        rooms: [
+          { id: "r1", col: 1, row: 1 },
+          { id: "r2", col: 2, row: 1 },
+          { id: "r3", col: 3, row: 1 },
+          { id: "r4", col: 1, row: 2 },
+          { id: "r5", col: 3, row: 2 },
+          { id: "r6", col: 1, row: 3 },
+          { id: "r7", col: 2, row: 3 },
+          { id: "r8", col: 3, row: 3 }
+        ],
+        connections: [
+          ["r2", "r3"],
+          ["r4", "start"],
+          ["start", "r5"],
+          ["r6", "r7"],
+          ["r1", "r4"],
+          ["r2", "start"],
+          ["r3", "r5"],
+          ["r4", "r6"],
+          ["start", "r7"],
+          ["r5", "r8"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 8",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 1, row: 1 },
+          { id: "r2", col: 3, row: 1 },
+          { id: "r3", col: 1, row: 2 },
+          { id: "r4", col: 2, row: 2 },
+          { id: "r5", col: 3, row: 2 },
+          { id: "r6", col: 1, row: 3 },
+          { id: "r7", col: 2, row: 3 },
+          { id: "r8", col: 3, row: 3 }
+        ],
+        connections: [
+          ["r6", "r7"],
+          ["r7", "r8"],
+          ["r1", "r3"],
+          ["r2", "r5"],
+          ["r3", "r6"],
+          ["r4", "r7"],
+          ["r5", "r8"],
+          ["r7", "start"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 9",
+        grid: { cols: 4, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 3, row: 1 },
+          { id: "r2", col: 2, row: 2 },
+		  { id: "l1", type: "long", col: 3, row: 2 },
+		  { id: "r3", col: 4, row: 2 },
+          { id: "r4", col: 1, row: 3 },
+          { id: "r5", col: 2, row: 3 },
+          { id: "r6", col: 3, row: 3 },
+          { id: "r7", col: 1, row: 4 },
+          { id: "r8", col: 3, row: 4 }
+        ],
+        connections: [
+          ["r2", "l1"],
+          ["l1", "r3"],
+          ["r4", "r5"],
+          ["r1", "l1"],
+          ["r2", "r5"],
+          ["l1", "r6"],
+          ["r4", "r7"],
+          ["r5", "start"],
+          ["r6", "r8"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 10",
+        grid: { cols: 5, rows: 4 },
+        start: { col: 3, row: 4 },
+        rooms: [
+          { id: "r1", col: 2, row: 1 },
+          { id: "r2", col: 4, row: 1 },
+          { id: "r3", col: 1, row: 2 },
+		  { id: "l1", type: "long", col: 2, row: 2 },
+          { id: "r4", col: 3, row: 2 },
+		  { id: "l2", type: "long", col: 4, row: 2 },
+          { id: "r5", col: 5, row: 2 },
+          { id: "r6", col: 2, row: 3 },
+          { id: "r7", col: 3, row: 3 },
+          { id: "r8", col: 4, row: 3 }
+        ],
+        connections: [
+          ["r1", "r2"],
+          ["r3", "l1"],
+          ["l1", "r4"],
+          ["r4", "l2"],
+          ["l2", "r5"],
+          ["r1", "l1"],
+          ["r2", "l2"],
+          ["l1", "r6"],
+          ["r4", "r7"],
+          ["l2", "r8"],
+          ["r7", "start"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 11",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 2 },
+        rooms: [
+          { id: "r1", col: 2, row: 1 },
+          { id: "r2", col: 3, row: 1 },
+          { id: "r3", col: 3, row: 2 },
+          { id: "r4", col: 2, row: 3 },
+          { id: "r5", col: 3, row: 3 },
+          { id: "r6", col: 1, row: 4 },
+          { id: "r7", col: 2, row: 4 },
+          { id: "r8", col: 3, row: 4 }
+        ],
+        connections: [
+          ["r1", "r2"],
+          ["r4", "r5"],
+          ["r6", "r7"],
+          ["r1", "start"],
+          ["r2", "r3"],
+          ["start", "r5"],
+          ["r5", "r7"],
+          ["r6", "r8"]
+        ]
+      },
+
+      {
+        name: "Ruins Layout 12",
+        grid: { cols: 3, rows: 4 },
+        start: { col: 2, row: 4 },
+        rooms: [
+          { id: "r1", col: 1, row: 1 },
+          { id: "r2", col: 1, row: 2 },
+          { id: "r3", col: 2, row: 2 },
+          { id: "r4", col: 1, row: 3 },
+          { id: "r5", col: 2, row: 3 },
+          { id: "r6", col: 3, row: 3 },
+          { id: "r7", col: 1, row: 4 },
+          { id: "r8", col: 3, row: 4 }
+        ],
+        connections: [
+          ["r2", "r3"],
+          ["r7", "start"],
+          ["start", "r8"],
+          ["r1", "r2"],
+          ["r3", "r5"],
+		  ["r4", "r7"],
+          ["r5", "start"],
+          ["r6", "r8"]
+        ]
+      }
+    ];
+	
+	const QUESTS = {
+      "Scout Ahead": {
+	    supplies: 8,
+		objectiveOnEdge: false,
+        tokens: ["Empty", "Empty", "Dark", "Curio", "Curio", "Lair", "Lair", "Trap"],
+        layouts: RUINS_LAYOUTS
+      },
+
+      "Wipe ‘Em Out": {
+	    supplies: 12,
+		objectiveOnEdge: false,
+        tokens: ["Empty", "Empty", "Dark", "Lair", "Lair", "Lair", "Trap", "Trap"],
+        layouts: RUINS_LAYOUTS
+      },
+
+      "Fundraiser": {
+	    supplies: 8,
+		objectiveOnEdge: false,
+        tokens: ["Empty", "Curio", "Curio", "Treasure", "Lair", "Lair", "Trap", "Trap"],
+        layouts: RUINS_LAYOUTS
+      },
+
+      "Dem Bones": {
+	    supplies: 8,
+		objectiveOnEdge: false,
+        tokens: ["Empty", "Curio", "Lair", "Trap", "Treasure", "Objective", "Objective", "Objective"],
+        layouts: RUINS_LAYOUTS
+      },
+
+      "Rising Threat": {
+	    supplies: 12,
+		objectiveOnEdge: false,
+        tokens: ["Empty", "Empty", "Dark", "Curio", "Curio", "Curio", "Treasure", "Trap"],
+        layouts: RUINS_LAYOUTS
+      },
+
+      "Face the Threat!": {
+	    supplies: 12,
+		objectiveOnEdge: true,
+        tokens: ["Empty", "Curio", "Lair", "Trap", "Treasure", "Dark", "Dark", "Objective"],
+        layouts: RUINS_LAYOUTS
+      }
+    };
+
+  /* DOM references */
+
+    const startScreen = document.getElementById("startScreen");
+    const locationScreen = document.getElementById("locationScreen");
+    const mapScreen = document.getElementById("mapScreen");
+    const locationList = document.getElementById("locationList");
+    const mapWrap = document.getElementById("mapWrap");
+    const connectionLayer = document.getElementById("connectionLayer");
+    const mapTitle = document.getElementById("mapTitle");
+	const encounterGrid = document.getElementById("encounterGrid");
+	
+  /* Runtime state */	
+	const gameState = {
+	  activeRoomId: "start",
+	  currentConnections: [],
+	  scoutPairsPending: false,
+	  currentQuestName: null,
+	  currentLayoutName: null
+	};
+
+    document.getElementById("embarkBtn").addEventListener("click", showQuests);
+    document.getElementById("backBtn").addEventListener("click", showQuests);
+    document.getElementById("scoutBtn").addEventListener("click", scoutRooms);
+	
+	document.getElementById("firewoodToken").addEventListener("click", () => {
+	  const activeRoom = document.querySelector(".room.active-room");
+
+	  if (!activeRoom || activeRoom.dataset.state !== "white") {
+		return;
+	  }
+
+	  const firewood = document.getElementById("firewoodToken");
+	  const supplies = document.getElementById("suppliesToken");
+
+	  firewood.classList.toggle("disabled");
+	  supplies.classList.toggle("disabled");
+	});
+	
+	document.getElementById("saveBtn").addEventListener("click", saveRun);
+	document.getElementById("loadBtn").addEventListener("click", () => {
+	  document.getElementById("loadFileInput").click();
+	});
+
+	document.getElementById("loadFileInput").addEventListener("change", loadRunFromFile);
+
+  /*Functions*/
+  /* 1. App setup / navigation */
+    function showQuests() {
+      startScreen.classList.add("hidden");
+      mapScreen.classList.add("hidden");
+      locationScreen.classList.remove("hidden");
+      renderQuestButtons();
+    }
+
+    function renderQuestButtons() {
+      locationList.innerHTML = "";
+
+      Object.keys(QUESTS).forEach(questName => {
+        const btn = document.createElement("button");
+        btn.textContent = questName;
+        btn.addEventListener("click", () => loadQuest(questName));
+        locationList.appendChild(btn);
+      });
+    }
+
+    function loadQuest(questName) {
+	  resetRunState();
+	  
+      const quest = QUESTS[questName];
+	  document.getElementById("suppliesNumber").textContent = quest.supplies;
+
+      if (!quest || !quest.layouts.length) {
+        alert(`No layouts have been added for ${questName} yet.`);
+        return;
+      }
+
+      const selectedMap = quest.layouts[Math.floor(Math.random() * quest.layouts.length)];
+      const tokenAssignments = assignTokensToRooms(quest, selectedMap);
+
+	  if (!tokenAssignments) {
+	    alert("This quest requires an Objective token and at least one valid edge room.");
+	    return;
+	  }
+
+      console.log(questName, selectedMap, tokenAssignments);
+
+      mapTitle.textContent = questName;
+	  gameState.currentQuestName = questName;
+	  gameState.currentLayoutName = selectedMap.name;
+      clearMap();
+	  clearEncounterPairs();
+	  gameState.scoutPairsPending = false;
+	  gameState.activeRoomId = "start";
+	  gameState.currentConnections = selectedMap.connections;
+      setRoomSize(selectedMap.grid);
+
+      const points = buildPointDictionary(selectedMap);
+      drawConnections(selectedMap.connections, points);
+      createStartRoom(selectedMap.start, selectedMap.grid);
+	  updateFirewoodAvailability();
+
+      const tokenByRoomId = Object.fromEntries(
+	    tokenAssignments.map(item => [item.roomId, item.token])
+	  );
+
+	  selectedMap.rooms.forEach(room => {
+	    if (room.type === "long") {
+		  createLongRoom(room, selectedMap.grid);
+		  return;
+	    }
+
+	    createRoom(room, selectedMap.grid, tokenByRoomId[room.id]);
+	  });
+
+      locationScreen.classList.add("hidden");
+      mapScreen.classList.remove("hidden");
+	  
+    }
+
+  /* 2. Map setup */
+    function setRoomSize(grid) {
+	  const size = grid.rows === 6 ? "9%" : "11%";
+	  mapWrap.style.setProperty("--room-size", size);
+	}
+
+    function buildPointDictionary(mapData) {
+      const points = {
+        start: gridToPercent(mapData.start, mapData.grid)
+      };
+
+      mapData.rooms.forEach(room => {
+        points[room.id] = gridToPercent(room, mapData.grid);
+      });
+
+      return points;
+    }
+
+    function gridToPercent(item, grid) {
+      const leftPadding = 16;
+      const rightPadding = 16;
+      const topPadding = grid.rows === 6 ? 11 : 16;
+      const bottomPadding = grid.rows === 6 ? 10 : 19;
+
+      const usableWidth = 100 - leftPadding - rightPadding;
+      const usableHeight = 100 - topPadding - bottomPadding;
+
+      return {
+        x: leftPadding + ((item.col - 1) / (grid.cols - 1)) * usableWidth,
+        y: topPadding + ((item.row - 1) / (grid.rows - 1)) * usableHeight
+      };
+    }
+
+    function drawConnections(connections, points) {
+      connections.forEach(([fromId, toId]) => {
+        const from = points[fromId];
+        const to = points[toId];
+
+        if (!from || !to) return;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", `${from.x}%`);
+        line.setAttribute("y1", `${from.y}%`);
+        line.setAttribute("x2", `${to.x}%`);
+        line.setAttribute("y2", `${to.y}%`);
+        line.classList.add("connection-line");
+        connectionLayer.appendChild(line);
+      });
+    }
+	
+    function clearMap() {
+      connectionLayer.innerHTML = "";
+      mapWrap.querySelectorAll(".room").forEach(el => el.remove());
+    }	
+	
+  /* 3. Room creation */	
+    function createStartRoom(start, grid) {
+	  const point = gridToPercent(start, grid);
+	  const token = document.createElement("div");
+
+	  token.className = "room active-room";
+	  token.dataset.roomId = "start";
+	  token.dataset.visited = "true";
+
+	  token.style.left = `${point.x}%`;
+	  token.style.top = `${point.y}%`;
+
+	  token.innerHTML = `
+		<img
+		  src="${START_ICON}"
+		  alt="Starting party"
+		  onerror="this.replaceWith(createFallbackStartIcon())">
+	  `;
+
+	  token.addEventListener("click", () => {
+	    const isActive = token.dataset.roomId === gameState.activeRoomId;
+
+	    if (isActive) {
+		  return;
+	    }
+
+	    if (!isConnectedToActive(token.dataset.roomId)) {
+		  return;
+	    }
+
+	    setActiveRoom(token);
+	    showStressPair();
+	  });
+
+	  mapWrap.appendChild(token);
+	}
+
+    function createRoom(room, grid, token) {
+      const point = gridToPercent(room, grid);
+      const cover = document.createElement("button");
+
+      cover.className = "room";
+      cover.style.left = `${point.x}%`;
+      cover.style.top = `${point.y}%`;
+      cover.title = "Reveal room";
+      cover.dataset.state = "green";
+      cover.dataset.token = token;
+	  cover.dataset.roomId = room.id;
+	  cover.dataset.pendingClear = "false";
+	  cover.dataset.visited = "false";
+
+      cover.innerHTML = `<img src="${GREEN_DOOR_ICON}" alt="Green door">`;
+
+      cover.addEventListener("click", () => handleRoomClick(cover));
+      mapWrap.appendChild(cover);
+    }
+
+	function createLongRoom(room, grid) {
+	  const point = gridToPercent(room, grid);
+	  const marker = document.createElement("button");
+
+	  marker.className = "room";
+	  marker.style.left = `${point.x}%`;
+	  marker.style.top = `${point.y}%`;
+	  marker.title = "Long room";
+	  marker.dataset.state = "long";
+	  marker.classList.add("long-room");
+	  marker.dataset.roomId = room.id;
+	  marker.dataset.visited = "false";
+
+	  marker.innerHTML = `<span class="long-room-marker"></span>`;
+
+	  marker.addEventListener("click", () => {
+	    if (!isConnectedToActive(marker.dataset.roomId)) {
+		  return;
+	    }
+
+	    setActiveRoom(marker);
+
+	    if (marker.dataset.visited === "false") {
+		  showRandomEncounterPairs();
+		  marker.dataset.visited = "true";
+	    }
+	  });
+	  mapWrap.appendChild(marker);
+	}
+	
+    function createFallbackStartIcon() {
+      const fallback = document.createElement("span");
+      fallback.className = "start-icon";
+      fallback.textContent = "☗";
+      return fallback;
+    }
+
+    function createFallbackToken(tokenName) {
+      const fallback = document.createElement("span");
+      fallback.className = "revealed-icon";
+      fallback.textContent = tokenName;
+      return fallback;
+    }
+
+  /* 4. Room interaction */ 
+    function handleRoomClick(roomButton) {
+	  const roomId = roomButton.dataset.roomId;
+	  const isActive = roomId === gameState.activeRoomId;
+	  const isFirstVisit = roomButton.dataset.visited === "false";
+
+	  // Can only click current active room or connected rooms
+	  if (!isActive && !isConnectedToActive(roomId)) {
+		return;
+	  }
+	  
+	  if (!isFirstVisit && !isActive) {
+	    setActiveRoom(roomButton);
+	    showStressPair();
+	    return;
+	  }
+
+	  // If this room is already active and revealed, second click clears it
+	  if (
+		isActive &&
+		roomButton.dataset.state === "token" &&
+		roomButton.dataset.pendingClear === "true" &&
+		roomButton.dataset.token !== "Dark" &&
+		roomButton.dataset.token !== "Trap"
+	  ) {
+		roomButton.dataset.state = "white";
+		roomButton.dataset.pendingClear = "false";
+		roomButton.innerHTML = `<img src="${WHITE_DOOR_ICON}" alt="White door">`;
+		updateFirewoodAvailability();
+		clearEncounterPairs();
+		return;
+	  }
+
+	  // Click always makes room active
+	  setActiveRoom(roomButton);
+	  
+		if (isFirstVisit) {
+		  showRandomEncounterPairs();
+		  roomButton.dataset.visited = "true";
+		}
+
+	  // If green, reveal token
+	  if (roomButton.dataset.state === "green") {
+	    revealRoomToken(roomButton);
+	    showRandomEncounterPairs();
+	  }
+
+	  // If token, mark it as ready to clear on next click
+	  if (roomButton.dataset.state === "token") {
+		roomButton.dataset.pendingClear = "true";
+	  }
+	} 
+  
+  	function setActiveRoom(roomButton) {
+	  const newRoomId = roomButton.dataset.roomId;
+
+	  if (newRoomId !== gameState.activeRoomId) {
+		clearEncounterPairs();
+	  }
+
+	  document.querySelectorAll(".room.active-room").forEach(room => {
+		room.classList.remove("active-room");
+	  });
+
+	  roomButton.classList.add("active-room");
+	  gameState.activeRoomId = newRoomId;
+
+	  const scoutBtn = document.getElementById("scoutBtn");
+
+	  if (roomButton.dataset.state === "long") {
+		scoutBtn.disabled = true;
+	  } else {
+		scoutBtn.disabled = false;
+	  }
+	  
+	  updateFirewoodAvailability();
+	}
+	
+	function isConnectedToActive(roomId) {
+	  return gameState.currentConnections.some(([a, b]) => {
+		return (
+		  (a === gameState.activeRoomId && b === roomId) ||
+		  (b === gameState.activeRoomId && a === roomId)
+		);
+	  });
+	}	
+	
+	function revealRoomToken(roomButton) {
+	  roomButton.dataset.state = "token";
+
+	  const tokenName = roomButton.dataset.token;
+
+	  roomButton.innerHTML = `
+		<img
+		  src="img/icons/${tokenName.toLowerCase()}.png"
+		  alt="${tokenName}"
+		  onerror="this.replaceWith(createFallbackToken('${tokenName}'))"
+		>
+	  `;
+	}	
+
+	function updateFirewoodAvailability() {
+	  const activeRoom = document.querySelector(".room.active-room");
+	  const firewood = document.getElementById("firewoodToken");
+
+	  if (activeRoom && activeRoom.dataset.state === "white") {
+		firewood.classList.remove("unavailable");
+	  } else {
+		firewood.classList.add("unavailable");
+	  }
+	}
+	
+  /* 5. Scout logic */
+    function scoutRooms() {
+	  const activeRoom = document.querySelector(".room.active-room");
+
+	  if (activeRoom && activeRoom.dataset.state === "long") {
+		return;
+	  }
+
+	  let revealedAny = false;
+
+	  document.querySelectorAll(".room[data-state='green']").forEach(roomButton => {
+		const roomId = roomButton.dataset.roomId;
+
+		if (isConnectedToActive(roomId)) {
+		  revealRoomToken(roomButton);
+		  roomButton.dataset.pendingClear = "false";
+		  roomButton.dataset.visited = "false";
+		  revealedAny = true;
+		}
+	  });
+
+	  if (revealedAny) {
+		gameState.scoutPairsPending = true;
+		
+		showStressPair();
+	  }
+	} 
+  
+  /* 6. Encounter / exploration panel */ 
+	function showRandomEncounterPairs() {
+	  encounterGrid.innerHTML = "";
+
+	  const useSingleColumn = gameState.scoutPairsPending;
+	  const rows = 4;
+
+	  encounterGrid.classList.remove("single-row");
+	  encounterGrid.classList.toggle("single-column", useSingleColumn);
+
+	  for (let i = 0; i < rows; i++) {
+	    const roleImg = document.createElement("img");
+	    roleImg.src = ROLE_ICONS[i];
+	    roleImg.alt = "Role icon";
+	    roleImg.classList.add("role-icon");
+	    roleImg.dataset.row = i;
+
+	    roleImg.addEventListener("click", () => {
+		  toggleEncounterRow(i);
+	    });
+
+   	    encounterGrid.appendChild(roleImg);
+
+	    const pair = getRandomPair(ENCOUNTER_ICONS);
+	    const iconsToShow = useSingleColumn ? [pair[0]] : pair;
+
+	    iconsToShow.forEach(iconPath => {
+		  const img = document.createElement("img");
+		  img.src = iconPath;
+		  img.alt = "Encounter icon";
+		  img.dataset.row = i;
+
+		  img.addEventListener("click", () => {
+		    img.classList.toggle("disabled");
+		    syncRoleWithRow(i);
+		  });
+
+		  encounterGrid.appendChild(img);
+	    });
+	  }
+
+	  gameState.scoutPairsPending = false;
+	}  
+  
+    function showStressPair() {
+	  encounterGrid.innerHTML = "";
+	  encounterGrid.classList.add("single-row");
+	  encounterGrid.classList.remove("single-column");
+
+	  STRESS_PAIR_ICONS.forEach(iconPath => {
+		const img = document.createElement("img");
+		img.src = iconPath;
+		img.alt = "Stress token";
+
+		img.addEventListener("click", () => {
+		  img.classList.toggle("disabled");
+		});
+
+		encounterGrid.appendChild(img);
+	  });
+
+	  encounterGrid.classList.remove("pulse");
+	  void encounterGrid.offsetWidth;
+	  encounterGrid.classList.add("pulse");
+	}
+  
+    function toggleEncounterRow(rowIndex) {
+	  const rowItems = [...encounterGrid.querySelectorAll(`[data-row="${rowIndex}"]`)];
+	  const roleIcon = rowItems.find(item => item.classList.contains("role-icon"));
+
+	  const shouldDisable = !roleIcon.classList.contains("disabled");
+
+	  rowItems.forEach(item => {
+		item.classList.toggle("disabled", shouldDisable);
+	  });
+	}
+
+	function syncRoleWithRow(rowIndex) {
+	  const rowItems = [...encounterGrid.querySelectorAll(`[data-row="${rowIndex}"]`)];
+	  const roleIcon = rowItems.find(item => item.classList.contains("role-icon"));
+	  const tokenIcons = rowItems.filter(item => !item.classList.contains("role-icon"));
+
+	  const allTokensDisabled = tokenIcons.every(item => item.classList.contains("disabled"));
+
+	  roleIcon.classList.toggle("disabled", allTokensDisabled);
+	}
+  
+	function getRandomPair(array) {
+	  const first = array[Math.floor(Math.random() * array.length)];
+	  const second = array[Math.floor(Math.random() * array.length)];
+	  return [first, second];
+	}
+
+	function clearEncounterPairs() {
+	  encounterGrid.innerHTML = "";
+	}  
+  
+  /* 7. Utility */
+    function shuffleArray(array) {
+      const shuffled = [...array];
+
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const randomIndex = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[i]];
+      }
+
+      return shuffled;
+    }
+	
+	function getEdgeRooms(mapData) {
+	  return mapData.rooms.filter(room => {
+		if (room.type === "long") return false;
+
+		const connectionCount = mapData.connections.filter(([a, b]) => {
+		  return a === room.id || b === room.id;
+		}).length;
+
+		return connectionCount === 1;
+	  });
+	}
+	
+	function assignTokensToRooms(quest, selectedMap) {
+	  const tokenRooms = selectedMap.rooms.filter(room => room.type !== "long");
+	  const shuffledTokens = shuffleArray([...quest.tokens]);
+
+	  if (!quest.objectiveOnEdge) {
+		return tokenRooms.map((room, index) => ({
+		  roomId: room.id,
+		  token: shuffledTokens[index]
+		}));
+	  }
+
+	  const edgeRooms = getEdgeRooms(selectedMap);
+
+	  if (!edgeRooms.length) {
+		alert("This layout has no valid edge room for the Objective token.");
+		return null;
+	  }
+
+	  const objectiveIndex = shuffledTokens.indexOf("Objective");
+
+	  if (objectiveIndex === -1) {
+		alert("This quest uses objectiveOnEdge, but has no Objective token.");
+		return null;
+	  }
+
+	  const [objectiveToken] = shuffledTokens.splice(objectiveIndex, 1);
+	  const selectedEdgeRoom = edgeRooms[Math.floor(Math.random() * edgeRooms.length)];
+
+	  const remainingRooms = tokenRooms.filter(room => room.id !== selectedEdgeRoom.id);
+	  const remainingTokens = shuffleArray(shuffledTokens);
+
+	  return [
+		{
+		  roomId: selectedEdgeRoom.id,
+		  token: objectiveToken
+		},
+		...remainingRooms.map((room, index) => ({
+		  roomId: room.id,
+		  token: remainingTokens[index]
+		}))
+	  ];
+	}
+	
+	function resetRunState() {
+	  gameState.activeRoomId = "start";
+	  gameState.currentConnections = [];
+	  gameState.scoutPairsPending = false;
+
+	  clearEncounterPairs();
+
+	  const scoutBtn = document.getElementById("scoutBtn");
+	  scoutBtn.disabled = false;
+
+	  const firewood = document.getElementById("firewoodToken");
+	  const supplies = document.getElementById("suppliesToken");
+
+	  firewood.classList.remove("disabled");
+	  firewood.classList.add("unavailable");
+
+	  supplies.classList.remove("disabled");
+
+	  mapTitle.textContent = "Quest Map";
+	}
+
+  /* 8. Map setup */		
+	
+	function saveRun() {
+	  const saveData = {
+		version: 1,
+
+		meta: {
+		  questName: gameState.currentQuestName,
+		  layoutName: gameState.currentLayoutName,
+		  savedAt: new Date().toISOString()
+		},
+
+		state: {
+		  activeRoomId: gameState.activeRoomId,
+		  scoutPairsPending: gameState.scoutPairsPending,
+
+		  camp: {
+			firewoodDisabled: document.getElementById("firewoodToken").classList.contains("disabled"),
+			suppliesDisabled: document.getElementById("suppliesToken").classList.contains("disabled")
+		  },
+
+		  rooms: [...mapWrap.querySelectorAll(".room")].map(room => ({
+			id: room.dataset.roomId,
+			state: room.dataset.state || "start",
+			token: room.dataset.token || null,
+			visited: room.dataset.visited === "true",
+			pendingClear: room.dataset.pendingClear === "true"
+		  }))
+		}
+	  };
+
+	  const fileName = `${slugify(gameState.currentQuestName)}_${getSaveTimestamp()}.json`;
+
+	  downloadJson(saveData, fileName);
+	}
+
+	function loadRunFromFile(event) {
+	  const file = event.target.files[0];
+
+	  if (!file) return;
+
+	  const reader = new FileReader();
+
+	  reader.onload = () => {
+		const saveData = JSON.parse(reader.result);
+		restoreRun(saveData);
+		event.target.value = "";
+	  };
+
+	  reader.readAsText(file);
+	}
+
+	function restoreRun(saveData) {
+	  const questName = saveData.meta.questName;
+	  const layoutName = saveData.meta.layoutName;
+
+	  const quest = QUESTS[questName];
+
+	  if (!quest) {
+	    alert("Could not load this save file.");
+	    return;
+	  }
+
+	  const selectedMap = quest.layouts.find(
+	    layout => layout.name === layoutName
+	  );
+
+	  if (!selectedMap) {
+	    alert("Could not load this save file.");
+	    return;
+	  }
+
+	  mapTitle.textContent = questName;
+	  clearMap();
+	  clearEncounterPairs();
+
+	  gameState.currentQuestName = questName;
+	  gameState.currentLayoutName = layoutName;
+	  gameState.activeRoomId = saveData.state.activeRoomId;
+	  gameState.currentConnections = selectedMap.connections;
+	  gameState.scoutPairsPending = false;
+
+	  document.getElementById("suppliesNumber").textContent = quest.supplies;
+
+	  setRoomSize(selectedMap.grid);
+
+	  const points = buildPointDictionary(selectedMap);
+	  drawConnections(selectedMap.connections, points);
+
+	  const roomSaveById = Object.fromEntries(
+		saveData.state.rooms.map(room => [room.id, room])
+	  );
+
+	  createStartRoom(selectedMap.start, selectedMap.grid);
+
+	  selectedMap.rooms.forEach(room => {
+		if (room.type === "long") {
+		  createLongRoom(room, selectedMap.grid);
+		  return;
+		}
+
+		const savedRoom = roomSaveById[room.id];
+		createRoom(room, selectedMap.grid, savedRoom.token);
+	  });
+
+	  applySavedRoomStates(saveData);
+
+	  document.getElementById("firewoodToken").classList.toggle(
+		"disabled",
+		saveData.state.camp.firewoodDisabled
+	  );
+
+	  document.getElementById("suppliesToken").classList.toggle(
+		"disabled",
+		saveData.state.camp.suppliesDisabled
+	  );
+
+	  startScreen.classList.add("hidden");
+	  locationScreen.classList.add("hidden");
+	  mapScreen.classList.remove("hidden");
+
+	  updateFirewoodAvailability();
+	}
+
+	function applySavedRoomStates(saveData) {
+	  saveData.state.rooms.forEach(savedRoom => {
+		const roomEl = mapWrap.querySelector(`[data-room-id="${savedRoom.id}"]`);
+		if (!roomEl) return;
+
+		roomEl.dataset.state = savedRoom.state;
+		roomEl.dataset.visited = String(savedRoom.visited);
+		roomEl.dataset.pendingClear = String(savedRoom.pendingClear);
+
+		roomEl.classList.toggle("active-room", savedRoom.id === saveData.state.activeRoomId);
+
+		if (savedRoom.state === "white") {
+		  roomEl.innerHTML = `<img src="${WHITE_DOOR_ICON}" alt="White door">`;
+		}
+
+		if (savedRoom.state === "token") {
+		  revealRoomToken(roomEl);
+		}
+	  });
+	}
+
+	function downloadJson(data, fileName) {
+	  const blob = new Blob([JSON.stringify(data, null, 2)], {
+		type: "application/json"
+	  });
+
+	  const link = document.createElement("a");
+	  link.href = URL.createObjectURL(blob);
+	  link.download = fileName;
+	  link.click();
+
+	  URL.revokeObjectURL(link.href);
+	}
+
+	function slugify(text) {
+	  return text
+		.toLowerCase()
+		.replace(/[’']/g, "")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+	}
+
+	function getSaveTimestamp() {
+	  return new Date()
+		.toISOString()
+		.replace(/[:.]/g, "-");
+	}
+			
+  </script>
+</body>
+</html>
